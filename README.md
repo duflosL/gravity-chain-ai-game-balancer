@@ -4,6 +4,12 @@ Gravity Chain est un jeu spatial de timing. Pour se propulser d’une planète �
 
 Le tableau de bord calcule les statistiques sur le PC avec Pandas et NumPy. Un agent Qwen3, exécuté par Ollama, choisit des outils de comparaison, sélectionne des pistes dans un catalogue et indique les mesures qui les étayent. Les décisions sont conservées dans SQLite. Accepter une proposition enregistre un avis humain. Le jeu reste indépendant de l’application.
 
+## Aperçu
+
+![Tableau de bord de difficulté sur la simulation](docs/captures/01-analyse.png)
+
+[Trace de l’agent sur GPU](docs/captures/02-agent.png) · [Détail d’une recommandation](docs/captures/03-recommandation.png) · [Bilan des validations](docs/VALIDATION.md)
+
 ## Démarrer sur Windows 11
 
 1. Copier ou extraire le projet dans un dossier où l’utilisateur peut écrire.

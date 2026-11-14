@@ -41,6 +41,7 @@ LEVEL_FIELDS = (
     "avg_attempts",
     "success_ci_low",
     "success_ci_high",
+    "timing_accuracy_n",
 )
 TIMING_FIELDS = (
     "timing_accuracy_n",
@@ -94,8 +95,8 @@ Procédure dans cet ordre :
 - Appelle inspect_level pour établir le constat d’un niveau prioritaire.
 - Après son résultat, appelle compare_level ou inspect_timing selon le constat,
   ou les deux si nécessaire, sur le même niveau. Si le niveau présente une
-  réussite faible et que des mesures de timing sont disponibles, examine le
-  timing avant de conclure.
+  réussite faible et que timing_n est positif, appelle inspect_timing sur
+  ce niveau avant d’examiner un autre niveau.
 - Si aucun autre appel ne paraît utile, réponds simplement « Analyse terminée ».
 Le rapport structuré sera demandé dans une étape séparée. Les statistiques sont
 des observations et ne démontrent aucune cause ni aucun effet futur."""
@@ -279,7 +280,7 @@ class _Investigation:
         return choices
 
 
-def _report_schema(levels, references):
+def _report_schema(selections, references):
     return {
         "type": "object",
         "additionalProperties": False,
@@ -292,10 +293,9 @@ def _report_schema(levels, references):
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["level", "action", "evidence"],
+                    "required": ["selection", "evidence"],
                     "properties": {
-                        "level": {"type": "string", "enum": levels},
-                        "action": {"type": "string", "enum": list(ACTIONS)},
+                        "selection": {"type": "string", "enum": selections},
                         "evidence": {
                             "type": "array",
                             "maxItems": 3,
@@ -322,15 +322,18 @@ def _validate_report(content, investigation, choices):
         raise AgentError("Le modèle n’a pas renvoyé de recommandation structurée.")
 
     accepted = []
-    used_levels = set()
+    used_actions = set()
     for item in recommendations:
-        if not isinstance(item, dict) or set(item) != {"level", "action", "evidence"}:
-            raise AgentError("Le format d’une recommandation est invalide.")
-        token, action, references = item["level"], item["action"], item["evidence"]
         if (
-            not isinstance(token, str)
-            or not isinstance(action, str)
-            or token in used_levels
+            not isinstance(item, dict)
+            or set(item) != {"selection", "evidence"}
+            or not isinstance(item["selection"], str)
+        ):
+            raise AgentError("Le format d’une recommandation est invalide.")
+        token, _, action = item["selection"].partition(":")
+        references = item["evidence"]
+        if (
+            (token, action) in used_actions
             or token not in choices
             or action not in choices[token]
         ):
@@ -365,7 +368,7 @@ def _validate_report(content, investigation, choices):
                 "action": action,
             }
         )
-        used_levels.add(token)
+        used_actions.add((token, action))
 
     return accepted
 
@@ -446,9 +449,10 @@ def _synthesize(client, investigation, choices, deadline, on_event):
         for token in choices
     }
     references = [row["reference"] for rows in available.values() for row in rows]
-    schema = _report_schema(list(choices), references)
+    selections = [f"{token}:{action}" for token, actions in choices.items() for action in actions]
+    schema = _report_schema(selections, references)
     prompt = {
-        "actions_permises_par_niveau": {token: list(actions) for token, actions in choices.items()},
+        "selections_permises": selections,
         "signification_des_actions": {code: action["hypothesis"] for code, action in ACTIONS.items()},
         "preuves_observees": available,
     }
@@ -456,8 +460,8 @@ def _synthesize(client, investigation, choices, deadline, on_event):
         {
             "role": "system",
             "content": (
-                "Sélectionne et classe de une à trois recommandations utiles. Un seul choix par niveau. "
-                "Utilise exclusivement une action autorisée pour le niveau choisi. "
+                "Sélectionne et classe de une à trois recommandations distinctes. "
+                "Copie la clé de sélection exacte niveau:action dans le champ selection. "
                 "Privilégie un test ciblé de timing si la comparaison de timing le permet. "
                 "L’application joint les preuves obligatoires. Le champ evidence contient au plus "
                 "trois références complémentaires du même niveau et peut rester vide. "

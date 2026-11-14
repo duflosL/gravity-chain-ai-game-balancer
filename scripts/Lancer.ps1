@@ -3,9 +3,12 @@ Set-Location -LiteralPath (Split-Path $PSScriptRoot -Parent)
 $root = (Get-Location).Path
 $runtime = Join-Path $root '.runtime'
 $python = '.venv\Scripts\python.exe'
-if ($env:GC_BALANCER_PYTHON) { $python = $env:GC_BALANCER_PYTHON }
 $port = if ($env:GC_BALANCER_PORT) { [int]$env:GC_BALANCER_PORT } else { 8765 }
 $appUrl = "http://127.0.0.1:$port"
+$localFile = Join-Path $runtime 'local-settings.json'
+$local = if (Test-Path -LiteralPath $localFile) { Get-Content -Raw -LiteralPath $localFile | ConvertFrom-Json } else { $null }
+if ($local.python -and (Test-Path -LiteralPath $local.python)) { $python = $local.python }
+if ($env:GC_BALANCER_PYTHON) { $python = $env:GC_BALANCER_PYTHON }
 $ownedOllama = $null
 $browserHelper = $null
 
@@ -19,12 +22,13 @@ try {
     try {
         Invoke-RestMethod 'http://127.0.0.1:11434/api/version' -TimeoutSec 2 | Out-Null
     } catch {
-        $portable = Join-Path $runtime 'ollama\ollama.exe'
+        $portable = if ($local.ollama) { $local.ollama } else { Join-Path $runtime 'ollama\ollama.exe' }
         if (Test-Path -LiteralPath $portable) {
             $env:OLLAMA_HOST = '127.0.0.1:11434'
-            $env:OLLAMA_MODELS = Join-Path $runtime 'models'
+            $env:OLLAMA_MODELS = if ($local.models) { $local.models } else { Join-Path $runtime 'models' }
             $env:OLLAMA_NO_CLOUD = '1'
             $env:OLLAMA_NUM_PARALLEL = '1'
+            if ($local.disableVulkan) { $env:OLLAMA_VULKAN = '0' }
             $ownedOllama = Start-Process -FilePath $portable -ArgumentList 'serve' -PassThru -WindowStyle Hidden `
                 -RedirectStandardOutput (Join-Path $runtime 'ollama.out.log') `
                 -RedirectStandardError (Join-Path $runtime 'ollama.err.log')

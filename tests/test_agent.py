@@ -20,7 +20,7 @@ def report_reply(action="widen_window", references=None):
     return {
         "role": "assistant",
         "content": json.dumps(
-            {"recommendations": [{"level": "N1", "action": action, "evidence": references or []}]}
+            {"recommendations": [{"selection": f"N1:{action}", "evidence": references or []}]}
         ),
     }
 
@@ -158,6 +158,18 @@ class AgentTests(unittest.TestCase):
         tool_messages = [json.loads(message["content"]) for message in messages if message["role"] == "tool"]
         self.assertIn("evidence", tool_messages[0])
         self.assertIn("après", tool_messages[1]["error"])
+
+    def test_distinct_actions_can_address_the_same_level(self):
+        report = {"recommendations": [
+            {"selection": "N1:timing_cue", "evidence": ["N1.timing_gap_pct_points"]},
+            {"selection": "N1:widen_window", "evidence": ["N1.success_avg_timing_accuracy_pct"]},
+        ]}
+        client = StubClient([
+            *exploration("inspect_timing"),
+            {"role": "assistant", "content": json.dumps(report)},
+        ])
+        result = run_analysis(client, sample_stats())
+        self.assertEqual([row["action"] for row in result["recommendations"]], ["timing_cue", "widen_window"])
 
     def test_missing_model_surfaces_install_hint(self):
         client = StubClient([])
