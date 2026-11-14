@@ -1,0 +1,17 @@
+[server]
+address = "127.0.0.1"
+port = 8765
+headless = true
+maxUploadSize = 20
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#E4BA70"
+backgroundColor = "#111216"
+secondaryBackgroundColor = "#191B21"
+textColor = "#F5F0E8"
+font = "sans serif"
