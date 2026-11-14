@@ -59,6 +59,20 @@ class CsvTests(unittest.TestCase):
         self.assertEqual(stats["levels"][0]["success_ci_high"], 100)
         self.assertIsNone(stats["levels"][0]["avg_duration_s"])
 
+    def test_import_does_not_infer_dates_or_round_attempt_counts(self):
+        header = "session_id;level;success;attempts;played_at\n"
+        for attempts, date, field in (
+            ("1", "2026", "played_at"),
+            ("1", "2026-11", "played_at"),
+            ("1.00000000000000001", "2026-11-14", "attempts"),
+            ("1000000000,00000001", "2026-11-14", "attempts"),
+        ):
+            with self.subTest(attempts=attempts, date=date), self.assertRaisesRegex(CsvError, field):
+                load_csv(f"{header}a;b;1;{attempts};{date}\n".encode())
+        frame, _ = load_csv(f"{header}a;b;1;3,0;2026-11-14T23:55:00-02:00\n".encode())
+        self.assertEqual(int(frame.iloc[0]["attempts"]), 3)
+        self.assertEqual(analyze(frame)["trend"][0]["period"], "2026-11-15")
+
     def test_threshold_includes_an_exact_gap_and_requires_coverage(self):
         header = 'session_id;level;success;attempts;"ignore,quoted,extra,comma,field"'
         rows = [header]

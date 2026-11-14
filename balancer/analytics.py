@@ -1,6 +1,7 @@
 """CSV schema and deterministic session-level game balance statistics."""
 
 import csv
+from decimal import Decimal, InvalidOperation
 from io import StringIO
 from math import sqrt
 
@@ -87,11 +88,24 @@ def _numbers(
     invalid = ~missing & (~np.isfinite(values) | (values < minimum) | (values > maximum))
     if required:
         invalid = invalid | missing | values.mod(1).ne(0)
+        candidates = ~invalid & ~series.str.fullmatch(r"[+-]?[0-9]+")
+        exact = series.loc[candidates].map(
+            lambda value: _is_exact_integer(value.replace(",", "."), minimum, maximum)
+        ).astype(bool)
+        invalid.loc[candidates] = ~exact
         message = f"Indiquez un entier compris entre {minimum} et {maximum}."
     else:
         message = f"Indiquez un nombre compris entre {minimum} et {maximum} ou laissez la cellule vide."
     _line_error(str(series.name), invalid, lines, message)
     return values.astype("int64" if required else "float64")
+
+
+def _is_exact_integer(value: str, minimum: int, maximum: int) -> bool:
+    try:
+        number = Decimal(value)
+        return minimum <= number <= maximum and number == number.to_integral_value()
+    except InvalidOperation:
+        return False
 
 
 def load_csv(data: bytes) -> tuple[pd.DataFrame, list[str]]:
@@ -133,8 +147,10 @@ def load_csv(data: bytes) -> tuple[pd.DataFrame, list[str]]:
     if "played_at" in frame:
         source_dates = frame["played_at"]
         missing = source_dates.str.lower().isin(MISSING_CODES)
+        complete = source_dates.str.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[Tt ].+)?")
         dates = pd.to_datetime(source_dates.mask(missing), format="ISO8601", utc=True, errors="coerce")
-        _line_error("played_at", ~missing & dates.isna(), lines, "Utilisez une date ISO (AAAA-MM-JJ) ou une date-heure ISO 8601.")
+        _line_error("played_at", ~missing & (~complete | dates.isna()), lines,
+                    "Utilisez une date ISO (AAAA-MM-JJ) ou une date-heure ISO 8601.")
         frame["played_at"] = dates
     else:
         frame["played_at"] = pd.Series(pd.NaT, index=frame.index, dtype="datetime64[ns, UTC]")

@@ -8,7 +8,7 @@ Machine de référence vérifiée le 14 novembre 2026. Windows 11, Core i5-14600
 | --- | --- |
 | Installation Windows | `Installer.cmd` a terminé et `pip check` a confirmé la cohérence des dépendances. |
 | Démarrage Windows | `Lancer.cmd` a servi l’application sur la boucle locale. La page de vérification a répondu `ok`. |
-| Suite Python | 21 tests réussis sur 21. Elle couvre les règles d’import, les agrégats, les seuils, SQLite, les décisions concurrentes, les exports et le protocole de l’agent avec réponses simulées. |
+| Suite Python | 22 tests réussis sur 22. Elle couvre les règles d’import, les agrégats, les seuils, SQLite, les décisions concurrentes, les exports et le protocole de l’agent avec réponses simulées. |
 | Parcours dans Chrome | Huit groupes de vérifications réussis. Navigation, historique vide, Ollama indisponible, fichier manquant, CSV invalide, import valide avec évolution datée, simulations détectées par les deux parcours, persistance, comparaison et téléchargement du rapport HTML. |
 | Simulation | 150 sessions, 458 observations, cinq étapes. À Périgée, 33 réussites sur 107, soit 30,84 %, contre 321 sur 351, soit 91,45 %, pour le reste. |
 | Inférence réelle, modèle chaud | Qwen3 8B Q4_K_M, Ollama 0.40.16, contexte de 8 192 jetons. Durée observée de 3,44 s. Cinq échanges avec le modèle et trois outils natifs sur Périgée. |
